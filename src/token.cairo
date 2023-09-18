@@ -186,10 +186,8 @@ mod ERC20 {
         fn do_transfer(ref self: ContractState, sender: ContractAddress, recipient: ContractAddress, amount: Balance) {
             let gains = Balance { amount: amount.amount };
 
-            let sender_balance = self.balances.read(sender);
-            let recipient_balance = self.balances.read(recipient);
-            self.balances.write(sender, sender_balance - amount);
-            self.balances.write(recipient, recipient_balance + gains);
+            self.balances.write(sender, self.balances.read(sender) - amount);
+            self.balances.write(recipient, self.balances.read(recipient) + gains);
         }
 
         fn use_allowance(ref self: ContractState, owner: ContractAddress, spender: ContractAddress, amount: Balance) {
@@ -279,5 +277,30 @@ mod test {
         assert(token.balance_of(dude()).amount == mint_amount, 'post mint dude bal');
         assert(token.total_supply().amount == mint_amount, 'post mint total supply');
     }
+
+    #[test]
+    #[available_gas(100000000)]
+    fn test_transfer_to_self() {
+        let token: IERC20LinearDispatcher = deploy_token();
+        set_contract_address(owner());
+
+        assert(token.balance_of(owner()).amount == 0, 'pre mint owner bal');
+        assert(token.balance_of(dude()).amount == 0, 'pre mint dude bal');
+
+        let mint_amount: u128 = 1000000000000000;
+        token.mint_to(dude(), mint_amount.into());
+
+        assert(token.balance_of(dude()).amount == mint_amount.into(), 'post mint dude bal');
+
+        let transfer_amount: u128 = 10000000;
+
+        set_contract_address(dude());
+        token.approve(dude(), transfer_amount.into());
+        token.transfer_from(dude(), dude(), transfer_amount.into());
+
+        assert(token.balance_of(dude()).amount == mint_amount.into(), 'post self transfer dude bal');
+        assert(token.total_supply().amount == mint_amount, 'post self transfer total supply');
+    }
+
     // TODO: more tests
 }
